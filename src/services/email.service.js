@@ -50,4 +50,4 @@ async function sendRegistrationEmail(userEmail, name) {
     await sendEmail(userEmail, subject, text, html);
 }
 
-export default sendEmail;
+export default sendRegistrationEmail;
