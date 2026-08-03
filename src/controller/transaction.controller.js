@@ -83,27 +83,27 @@ export async function createTransaction(req, res) {
   const session = await Transaction.startSession();
   session.startTransaction()
 
-  const transaction = await Transaction.create({
+  const [transaction] = await Transaction.create([{
     fromAccount,
     toAccount,
     amount,
     idempotencyKey,
     status: "pending",
-  },{session})
+  }],{session})
 
-  const debitLedgerEntry = await Ledger.create({
+  const [debitLedgerEntry] = await Ledger.create([{
     account:fromAccount,
     amount: amount,
-    transcation:transaction._id,
+    transaction:transaction._id,
     type:"debit"
-  },{session})
+  }],{session})
 
-  const creditLedgerEntry = await Ledger.create({
+  const [creditLedgerEntry] = await Ledger.create([{
     account: toAccount,
     amount: amount,
     transaction: transaction._id,
     type: "credit"
-  },{session})
+  }],{session})
 
   transaction.status="completed"
   await transaction.save({session})
@@ -137,7 +137,7 @@ export async function createInitialFundsTransaction(req, res) {
     return res.status(404).json({ message: "Account not found" });
   }
 
-  const fromUserAccount = await Account.findOne({ systemUser: true });
+  const fromUserAccount = await Account.findOne({ user: req.user._id });
 
   if (!fromUserAccount) {
     return res.status(404).json({ message: "System account not found" });
@@ -174,20 +174,27 @@ export async function createInitialFundsTransaction(req, res) {
   const session = await Transaction.startSession();
   session.startTransaction()
 
-  const transaction = await Transaction.create({
-    fromAccount: null,
+  const [transaction] = await Transaction.create([{
+    fromAccount: fromUserAccount._id,
     toAccount,
     amount,
     idempotencyKey,
     status: "pending",
-  },{session})
+  }],{session})
 
-  const creditLedgerEntry = await Ledger.create({
+  const [debitLedgerEntry] = await Ledger.create([{
+    account: fromUserAccount._id,
+    amount: amount,
+    transaction: transaction._id,
+    type: "debit"
+  }],{session})
+
+  const [creditLedgerEntry] = await Ledger.create([{
     account: toAccount,
     amount: amount,
     transaction: transaction._id,
     type: "credit"
-  },{session})
+  }],{session})
 
   transaction.status="completed"
   await transaction.save({session})

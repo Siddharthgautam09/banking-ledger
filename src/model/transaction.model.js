@@ -3,13 +3,13 @@ import mongoose from 'mongoose';
 const transactionSchema = new mongoose.Schema({
 
     fromAccount:{
-        types: mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'Account',
         required: [true , "Transactions must be associated with a from account"],
         index: true
     },
     toAccount:{
-        types: mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'Account',
         required: [true , "Transactions must be associated with a to account"],
         index: true
