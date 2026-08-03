@@ -2,7 +2,7 @@ import UserModel from '../model/user.model.js'
 import jwt from 'jsonwebtoken'
 import Counter from '../model/counter.model.js'
 
-import sendEmail from '../services/email.service.js';
+import { sendRegistrationEmail } from '../services/email.service.js';
 
 
 export async function userRegisterController(req,res){
@@ -49,7 +49,7 @@ export async function userRegisterController(req,res){
         },
         token
     })
-    await sendEmail(user.email, user.name);
+    await sendRegistrationEmail(user.email, user.name);
 
 }
 
