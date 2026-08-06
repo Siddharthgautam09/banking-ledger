@@ -37,7 +37,7 @@ export async function getAccountBalanceController(req, res) {
     })
 
     if(!account){
-        res.status(404).json({
+        return res.status(404).json({
             message:"Account Not Found"
         })
     }
