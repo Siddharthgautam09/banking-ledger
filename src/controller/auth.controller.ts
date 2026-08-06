@@ -1,3 +1,4 @@
+import { Request, Response } from 'express'
 import UserModel from '../model/user.model.js'
 import jwt from 'jsonwebtoken'
 import Counter from '../model/counter.model.js'
@@ -6,7 +7,7 @@ import TokenBlacklist from '../model/backlist.model.js'
 import { sendRegistrationEmail } from '../services/email.service.js';
 
 
-export async function userRegisterController(req, res) {
+export async function userRegisterController(req: Request, res: Response) {
 
     const { email, password, name } = req.body
 
@@ -27,7 +28,7 @@ export async function userRegisterController(req, res) {
 
     const userId =
         `USER-${year}${String(
-            counter.sequence
+            counter!.sequence
         ).padStart(3, "0")}`;
 
 
@@ -35,7 +36,7 @@ export async function userRegisterController(req, res) {
         email, password, name, userId
     })
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN })
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET as string, { expiresIn: process.env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] })
 
     res.cookie("token", token)
 
@@ -54,7 +55,7 @@ export async function userRegisterController(req, res) {
 
 }
 
-export async function getUserController(req, res) {
+export async function getUserController(req: Request, res: Response) {
     const { id } = req.params
 
     const userId = `USER-${id}`
@@ -75,7 +76,7 @@ export async function getUserController(req, res) {
 
 }
 
-export async function userLoginController(req, res) {
+export async function userLoginController(req: Request, res: Response) {
     const { email, password } = req.body
 
     const user = await UserModel.findOne({ email }).select('+password')
@@ -94,7 +95,7 @@ export async function userLoginController(req, res) {
         })
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN })
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET as string, { expiresIn: process.env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] })
 
     res.cookie("token", token)
 
@@ -109,7 +110,7 @@ export async function userLoginController(req, res) {
  * logout user by clearing the cookie
  */
 
-export async function userLogoutController(req, res) {
+export async function userLogoutController(req: Request, res: Response) {
 
     const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
@@ -123,8 +124,8 @@ export async function userLogoutController(req, res) {
     res.clearCookie("token")
 
     // Add the token to the blacklist
-    await TokenBlacklist.create({ 
-        token:token 
+    await TokenBlacklist.create({
+        token: token
     })
 
     res.status(200).json({

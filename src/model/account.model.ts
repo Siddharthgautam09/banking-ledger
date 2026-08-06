@@ -1,8 +1,22 @@
-import express from "express";
-import mongoose from "mongoose";
+import mongoose, { Document, Types } from "mongoose";
 import Ledger from "./ledger.model.js";
 
-const accountSchema = new mongoose.Schema(
+export type AccountStatus = "Active" | "Closed" | "Frozen";
+export type AccountCurrency = "USD" | "EUR" | "GBP" | "JPY" | "INR";
+export type AccountKind = "Savings" | "Current";
+
+export interface IAccount extends Document {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  status: AccountStatus;
+  currency: AccountCurrency;
+  accountType: AccountKind;
+  createdAt: Date;
+  balance: number;
+  getBalance(): Promise<number>;
+}
+
+const accountSchema = new mongoose.Schema<IAccount>(
   {
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -38,7 +52,7 @@ const accountSchema = new mongoose.Schema(
       default: Date.now,
     },
     // ponytail: denormalized counter used only for the atomic overdraft guard in
-    // transaction.controller.js; getBalance() below (ledger aggregate) stays the
+    // transaction.controller.ts; getBalance() below (ledger aggregate) stays the
     // source of truth for reads/audits.
     balance: {
       type: Number,
@@ -53,7 +67,7 @@ const accountSchema = new mongoose.Schema(
 //compound index to ensure that a user can have only one account of a particular status
 accountSchema.index({ user: 1, status: 1 }, { unique: true });
 
-accountSchema.methods.getBalance = async function () {
+accountSchema.methods.getBalance = async function (this: IAccount) {
   const balanceData = await Ledger.aggregate([
     { $match: { account: this._id } },
     {
@@ -84,6 +98,6 @@ accountSchema.methods.getBalance = async function () {
   return balanceData[0].balance;
 };
 
-export const Account = mongoose.model("Account", accountSchema);
+export const Account = mongoose.model<IAccount>("Account", accountSchema);
 
 export default Account;

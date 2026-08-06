@@ -1,6 +1,16 @@
-import mongoose from "mongoose";
+import mongoose, { Document, Types } from "mongoose";
 
-const ledgerSchema = new mongoose.Schema({
+export type LedgerType = "credit" | "debit";
+
+export interface ILedger extends Document {
+    _id: Types.ObjectId;
+    account: Types.ObjectId;
+    amount: number;
+    transaction: Types.ObjectId;
+    type: LedgerType;
+}
+
+const ledgerSchema = new mongoose.Schema<ILedger>({
 
     account:{
         type: mongoose.Schema.Types.ObjectId,
@@ -32,19 +42,18 @@ const ledgerSchema = new mongoose.Schema({
     }
 },{timestamps:true})
 
-function preventLedgerModification(){
+function preventLedgerModification(): never {
     throw new Error("Ledger entries cannot be modified or deleted once created");
 }
 
 ledgerSchema.pre("findOneAndUpdate", preventLedgerModification);
 ledgerSchema.pre("updateOne", preventLedgerModification);
 ledgerSchema.pre("deleteOne", preventLedgerModification);
-ledgerSchema.pre("remove", preventLedgerModification);
 ledgerSchema.pre("deleteMany", preventLedgerModification);
 ledgerSchema.pre("updateMany", preventLedgerModification);
 ledgerSchema.pre("findOneAndDelete", preventLedgerModification);
 ledgerSchema.pre("findOneAndReplace", preventLedgerModification);
 
-const Ledger = mongoose.model ("Ledger", ledgerSchema )
+const Ledger = mongoose.model<ILedger>("Ledger", ledgerSchema)
 
 export default Ledger;

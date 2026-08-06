@@ -1,6 +1,17 @@
-import mongoose from 'mongoose';
+import mongoose, { Document, Types } from 'mongoose';
 
-const transactionSchema = new mongoose.Schema({
+export type TransactionStatus = "pending" | "completed" | "failed" | "reversed";
+
+export interface ITransaction extends Document {
+    _id: Types.ObjectId;
+    fromAccount: Types.ObjectId;
+    toAccount: Types.ObjectId;
+    status: TransactionStatus;
+    amount: number;
+    idempotencyKey: string;
+}
+
+const transactionSchema = new mongoose.Schema<ITransaction>({
 
     fromAccount:{
         type: mongoose.Schema.Types.ObjectId,
@@ -40,6 +51,6 @@ const transactionSchema = new mongoose.Schema({
 })
 
 
-const Transaction = mongoose.model('Transaction', transactionSchema);
+const Transaction = mongoose.model<ITransaction>('Transaction', transactionSchema);
 
 export default Transaction;

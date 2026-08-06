@@ -10,7 +10,7 @@ const accountRouter = express.Router();
  * -POST /api/accounts/
  * - Create a new account
  * -Protected route
- * 
+ *
  */
 accountRouter.post('/', authMiddleware, createAccountController)
 
@@ -18,7 +18,7 @@ accountRouter.post('/', authMiddleware, createAccountController)
  *   -GET /api/accounts/balance/:accountId
  *  - Get the balance of an account by accountId
  *   - Protected route
- * 
+ *
  */
 accountRouter.get('/balance/:accountId', authMiddleware, getAccountBalanceController)
 

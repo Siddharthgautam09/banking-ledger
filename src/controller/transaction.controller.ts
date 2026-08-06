@@ -1,5 +1,6 @@
-import express from "express";
-import Transaction from "../model/transaction.model.js";
+import { Request, Response } from "express";
+import { HydratedDocument } from "mongoose";
+import Transaction, { ITransaction } from "../model/transaction.model.js";
 import Ledger from "../model/ledger.model.js";
 import Account from "../model/account.model.js";
 import { sendTransactionEmail } from "../services/email.service.js";
@@ -7,7 +8,7 @@ import { sendTransactionEmail } from "../services/email.service.js";
 /**
  *  Create a new transaction between two accounts. This function handles the creation of a transaction, including validation, idempotency checks, and ledger updates. It ensures that the transaction is processed correctly and that duplicate transactions are avoided.
  */
-export async function createTransaction(req, res) {
+export async function createTransaction(req: Request, res: Response) {
   const { fromAccount, toAccount, amount, idempotencyKey } = req.body;
   console.log("createTransaction received idempotencyKey:", idempotencyKey);
 
@@ -84,7 +85,7 @@ export async function createTransaction(req, res) {
    */
 
   const session = await Transaction.startSession();
-  let transaction;
+  let transaction: HydratedDocument<ITransaction>;
 
   try {
     session.startTransaction()
@@ -127,6 +128,13 @@ export async function createTransaction(req, res) {
       type: "credit"
     }], { session })
 
+    await (() => {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(undefined);
+        }, 10 * 1000);
+      });
+    })()
 
     transaction.status = "completed"
     await transaction.save({ session })
@@ -139,15 +147,16 @@ export async function createTransaction(req, res) {
     }, {
       status: "failed"
     })
-    return res.status(400).json({ message: "Transaction is pending due to an issue please retry after sometime", error: error.message });
+    const message = error instanceof Error ? error.message : String(error);
+    return res.status(400).json({ message: "Transaction is pending due to an issue please retry after sometime", error: message });
   } finally {
     session.endSession()
   }
 
   /**
-  * Send email conformation
-  */
-  await sendTransactionEmail(req.user.email, req.user.name, amount, toAccount)
+   * Send email conformation
+   */
+  await sendTransactionEmail(req.user!.email, req.user!.name, amount, toAccount)
   return res.status(201).json({
     message: "Transaction completed Successfully",
     transaction: transaction
@@ -155,13 +164,11 @@ export async function createTransaction(req, res) {
 }
 
 
-
-
 /**
  *  Funds transaction from system account to user account, this is used to create initial funds for a user account
  */
 
-export async function createInitialFundsTransaction(req, res) {
+export async function createInitialFundsTransaction(req: Request, res: Response) {
   const { toAccount, amount, idempotencyKey } = req.body;
 
   if (!toAccount || !amount || !idempotencyKey) {
@@ -174,7 +181,7 @@ export async function createInitialFundsTransaction(req, res) {
     return res.status(404).json({ message: "Account not found" });
   }
 
-  const fromUserAccount = await Account.findOne({ user: req.user._id });
+  const fromUserAccount = await Account.findOne({ user: req.user!._id });
 
   if (!fromUserAccount) {
     return res.status(404).json({ message: "System account not found" });
@@ -219,14 +226,14 @@ export async function createInitialFundsTransaction(req, res) {
     status: "pending",
   }], { session })
 
-  const [debitLedgerEntry] = await Ledger.create([{
+  await Ledger.create([{
     account: fromUserAccount._id,
     amount: amount,
     transaction: transaction._id,
     type: "debit"
   }], { session })
 
-  const [creditLedgerEntry] = await Ledger.create([{
+  await Ledger.create([{
     account: toAccount,
     amount: amount,
     transaction: transaction._id,

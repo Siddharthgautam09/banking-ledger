@@ -1,10 +1,13 @@
+import { Request, Response, NextFunction } from "express";
 import UserModel from '../model/user.model.js'
 import TokenBlacklist from '../model/backlist.model.js'
 import jwt from 'jsonwebtoken'
 
+interface AuthTokenPayload {
+    userId: string;
+}
 
-
-export async function authMiddleware(req, res, next) {
+export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
 
     const token = req.cookies.token || req.headers.authorization?.split(" ")[1]
 
@@ -24,11 +27,11 @@ export async function authMiddleware(req, res, next) {
 
     try {
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as AuthTokenPayload
 
         const user = await UserModel.findById(decoded.userId).select("-password")
 
-        req.user = user
+        req.user = user ?? undefined
 
         return next()
 
@@ -40,7 +43,7 @@ export async function authMiddleware(req, res, next) {
 }
 
 
-export async function authSystemUserMiddleware(req, res, next) {
+export async function authSystemUserMiddleware(req: Request, res: Response, next: NextFunction) {
 
     const token = req.cookies.token || req.headers.authorization?.split(" ")[1]
 
@@ -60,11 +63,11 @@ export async function authSystemUserMiddleware(req, res, next) {
 
     try {
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as AuthTokenPayload
 
         const user = await UserModel.findById(decoded.userId).select("+systemUser").select("-password")
 
-        if (!user.systemUser) {
+        if (!user?.systemUser) {
             return res.status(403).json({
                 message: "Forbidden access, only system user can perform this action"
             })
@@ -79,4 +82,4 @@ export async function authSystemUserMiddleware(req, res, next) {
             message: "Unauthorized access, token is invalid !"
         })
     }
-}   
+}
