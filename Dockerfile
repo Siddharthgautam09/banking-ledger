@@ -37,6 +37,9 @@ RUN npm ci --omit=dev
 # Copy compiled application
 COPY --from=builder /app/dist ./dist
 
+# Swagger reads these plain-comment doc files directly at runtime (not compiled)
+COPY --from=builder /app/src/docs ./src/docs
+
 # If your server reads .env inside the container, uncomment:
 # COPY .env ./
 
