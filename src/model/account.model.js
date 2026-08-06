@@ -37,6 +37,13 @@ const accountSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // ponytail: denormalized counter used only for the atomic overdraft guard in
+    // transaction.controller.js; getBalance() below (ledger aggregate) stays the
+    // source of truth for reads/audits.
+    balance: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

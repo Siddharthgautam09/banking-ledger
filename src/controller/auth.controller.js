@@ -1,47 +1,48 @@
 import UserModel from '../model/user.model.js'
 import jwt from 'jsonwebtoken'
 import Counter from '../model/counter.model.js'
+import TokenBlacklist from '../model/backlist.model.js'
 
 import { sendRegistrationEmail } from '../services/email.service.js';
 
 
-export async function userRegisterController(req,res){
+export async function userRegisterController(req, res) {
 
-    const{ email, password, name } = req.body
+    const { email, password, name } = req.body
 
     const isExist = await UserModel.findOne({
         email: email
     })
-    if(isExist){
+    if (isExist) {
         return res.status(422).json({
-            message:"USER already exists",
-            status:"failed"
+            message: "USER already exists",
+            status: "failed"
         })
     }
 
     // Get the last two digits of the current year
     const year = String(new Date().getFullYear()).slice(-2);
     // Atomically increase sequence
-    const counter =await Counter.findOneAndUpdate({year},{$inc: {sequence: 1}},{returnDocument: 'after',upsert: true});
+    const counter = await Counter.findOneAndUpdate({ year }, { $inc: { sequence: 1 } }, { returnDocument: 'after', upsert: true });
 
     const userId =
-      `USER-${year}${String(
-        counter.sequence
-      ).padStart(3, "0")}`;
+        `USER-${year}${String(
+            counter.sequence
+        ).padStart(3, "0")}`;
 
 
     const user = await UserModel.create({
         email, password, name, userId
     })
 
-    const token = jwt.sign({userId:user._id},process.env.JWT_SECRET,{expiresIn: process.env.JWT_EXPIRES_IN})
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN })
 
-    res.cookie("token",token)
+    res.cookie("token", token)
 
     res.status(201).json({
         message: "User is created Sucessfully",
         status: "Success",
-        user:{
+        user: {
             _id: user._id,
             userId: user.userId,
             email: user.email,
@@ -53,14 +54,14 @@ export async function userRegisterController(req,res){
 
 }
 
-export async function getUserController(req,res){
+export async function getUserController(req, res) {
     const { id } = req.params
 
     const userId = `USER-${id}`
 
     const user = await UserModel.findOne({ userId })
 
-    if(!user) {
+    if (!user) {
         return res.status(404).json({
             message: "User not found",
             status: "failed"
@@ -68,38 +69,66 @@ export async function getUserController(req,res){
     }
 
     res.status(200).json({
-        message: "User fetched successfully",   
+        message: "User fetched successfully",
         user
     })
 
 }
 
-export async function userLoginController(req,res){
+export async function userLoginController(req, res) {
     const { email, password } = req.body
 
     const user = await UserModel.findOne({ email }).select('+password')
 
-    if(!user){
+    if (!user) {
         return res.status(404).json({
             message: "User not found",
             status: "failed"
         })
     }
     const isPasswordMatched = await user.comparePassword(password)
-    if(!isPasswordMatched){
+    if (!isPasswordMatched) {
         return res.status(401).json({
             message: "Invalid credentials",
             status: "failed"
         })
     }
 
-    const token = jwt.sign({userId:user._id},process.env.JWT_SECRET,{expiresIn: process.env.JWT_EXPIRES_IN})
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN })
 
-    res.cookie("token",token)
+    res.cookie("token", token)
 
     res.status(200).json({
         message: "User logged in successfully",
         status: "success",
         token
     })
-}   
+}
+
+/**
+ * logout user by clearing the cookie
+ */
+
+export async function userLogoutController(req, res) {
+
+    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+        return res.status(400).json({
+            message: "Token not found",
+            status: "failed"
+        })
+    }
+
+    res.clearCookie("token")
+
+    // Add the token to the blacklist
+    await TokenBlacklist.create({ 
+        token:token 
+    })
+
+    res.status(200).json({
+        message: "User logged out successfully",
+        status: "success"
+    })
+}

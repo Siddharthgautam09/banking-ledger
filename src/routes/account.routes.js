@@ -2,7 +2,7 @@
 import express from 'express';
 
 import { authMiddleware } from '../middleware/auth.middleware.js'
-import {createAccountController, getAccountBalanceController, getaccountController} from '../controller/account.controller.js';
+import { createAccountController, getAccountBalanceController, getaccountController, } from '../controller/account.controller.js';
 
 const accountRouter = express.Router();
 
@@ -12,7 +12,7 @@ const accountRouter = express.Router();
  * -Protected route
  * 
  */
-accountRouter.post('/',authMiddleware, createAccountController)
+accountRouter.post('/', authMiddleware, createAccountController)
 
 /**
  *   -GET /api/accounts/balance/:accountId
@@ -22,7 +22,11 @@ accountRouter.post('/',authMiddleware, createAccountController)
  */
 accountRouter.get('/balance/:accountId', authMiddleware, getAccountBalanceController)
 
-accountRouter.get('/',authMiddleware,getaccountController)
+
+/**
+ *  -GET /api/accounts/
+ */
+accountRouter.get('/', authMiddleware, getaccountController)
 
 
 export default accountRouter;

@@ -9,6 +9,7 @@ import { sendTransactionEmail } from "../services/email.service.js";
  */
 export async function createTransaction(req, res) {
   const { fromAccount, toAccount, amount, idempotencyKey } = req.body;
+  console.log("createTransaction received idempotencyKey:", idempotencyKey);
 
   /**
    * 1. Validate the request body to ensure that all required fields are present. If any required field is missing, return a 400 Bad Request response with an appropriate error message.
@@ -82,65 +83,75 @@ export async function createTransaction(req, res) {
    * 5. create session and transaction
    */
 
-  try {
+  const session = await Transaction.startSession();
+  let transaction;
 
-    const session = await Transaction.startSession();
+  try {
     session.startTransaction()
 
-    const [transaction] = await Transaction.create([{
-      fromAccount,
-      toAccount,
-      amount,
-      idempotencyKey,
-      status: "pending",
-    }], { session })
+      ;[transaction] = await Transaction.create([{
+        fromAccount,
+        toAccount,
+        amount,
+        idempotencyKey,
+        status: "pending",
+      }], { session })
 
-    const [debitLedgerEntry] = await Ledger.create([{
+    // Atomic overdraft guard: the $gte condition and the decrement happen in one
+    // write, so concurrent transfers on the same account can't both pass a stale check.
+    const debitedAccount = await Account.findOneAndUpdate(
+      { _id: fromAccount, balance: { $gte: amount } },
+      { $inc: { balance: -amount } },
+      { session, new: true }
+    )
+    if (!debitedAccount) {
+      throw new Error("Insufficient balance")
+    }
+    await Account.findOneAndUpdate(
+      { _id: toAccount },
+      { $inc: { balance: amount } },
+      { session }
+    )
+
+    await Ledger.create([{
       account: fromAccount,
       amount: amount,
       transaction: transaction._id,
       type: "debit"
     }], { session })
 
-    const [creditLedgerEntry] = await Ledger.create([{
+    await Ledger.create([{
       account: toAccount,
       amount: amount,
       transaction: transaction._id,
       type: "credit"
     }], { session })
 
-    await Transaction.findOneAndUpdate(
-      { _id: transaction._id },
-      { status: "completed" },
-      { session }
-    );
+
+    transaction.status = "completed"
+    await transaction.save({ session })
 
     await session.commitTransaction()
-    session.endSession()
-
-
   } catch (error) {
-
+    await session.abortTransaction()
     await Transaction.findOneAndUpdate({
       idempotencyKey: idempotencyKey
     }, {
       status: "failed"
     })
     return res.status(400).json({ message: "Transaction is pending due to an issue please retry after sometime", error: error.message });
+  } finally {
+    session.endSession()
   }
 
   /**
   * Send email conformation
   */
   await sendTransactionEmail(req.user.email, req.user.name, amount, toAccount)
-
   return res.status(201).json({
-    message: "Transactiopn completed Successfully",
+    message: "Transaction completed Successfully",
     transaction: transaction
   })
-
-
-
 }
 
 
@@ -221,6 +232,19 @@ export async function createInitialFundsTransaction(req, res) {
     transaction: transaction._id,
     type: "credit"
   }], { session })
+
+  // System account mints funds, so no $gte guard here — only the recipient's
+  // cached balance needs to stay in sync with the ledger.
+  await Account.findOneAndUpdate(
+    { _id: fromUserAccount._id },
+    { $inc: { balance: -amount } },
+    { session }
+  )
+  await Account.findOneAndUpdate(
+    { _id: toAccount },
+    { $inc: { balance: amount } },
+    { session }
+  )
 
   transaction.status = "completed"
   await transaction.save({ session })
